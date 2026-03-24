@@ -1,2 +1,158 @@
-html
-great things will come in their own time
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turbo Horizon - 3D Racing</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
+        #overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #ffde00;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+        }
+        .hud-item { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
+        #instructions {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            color: #ffde00;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="hud-item">KM/H: <span id="speed">0</span></div>
+        <div class="hud-item">POINTS: <span id="score">0</span></div>
+    </div>
+    <div id="instructions">A / D or ARROWS TO STEER</div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let scene, camera, renderer, car, road;
+        let blocks = [];
+        let score = 0;
+        let gameSpeed = 0.6;
+        let keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false };
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+            scene.fog = new THREE.Fog(0x050505, 5, 60);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.8, 6);
+            camera.lookAt(0, 0, -5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambient);
+            const sun = new THREE.DirectionalLight(0xffde00, 1);
+            sun.position.set(5, 10, 5);
+            scene.add(sun);
+
+            // Road with a striped texture effect
+            const roadGeo = new THREE.PlaneGeometry(12, 1000);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            scene.add(road);
+
+            // Simple Car Model
+            const carGroup = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.4, 2.2),
+                new THREE.MeshStandardMaterial({ color: 0xffde00 })
+            );
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 0.4, 1),
+                new THREE.MeshStandardMaterial({ color: 0x111111 })
+            );
+            roof.position.set(0, 0.4, -0.2);
+            carGroup.add(body, roof);
+            car = carGroup;
+            car.position.y = 0.3;
+            scene.add(car);
+
+            // Obstacles
+            for (let i = 0; i < 15; i++) {
+                const block = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 1.5, 1.5),
+                    new THREE.MeshStandardMaterial({ color: 0xff4400 })
+                );
+                resetBlock(block);
+                block.position.z = -i * 12;
+                scene.add(block);
+                blocks.push(block);
+            }
+
+            window.addEventListener('keydown', (e) => keys[e.code] = true);
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+            window.onresize = () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            };
+
+            animate();
+        }
+
+        function resetBlock(b) {
+            b.position.z = -120;
+            b.position.x = (Math.random() - 0.5) * 10;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Controls
+            if (keys.ArrowLeft || keys.KeyA) car.position.x -= 0.12;
+            if (keys.ArrowRight || keys.KeyD) car.position.x += 0.12;
+            car.position.x = Math.max(Math.min(car.position.x, 5), -5);
+
+            // Road movement logic
+            blocks.forEach(b => {
+                b.position.z += gameSpeed;
+                
+                // Collision
+                const dx = b.position.x - car.position.x;
+                const dz = b.position.z - car.position.z;
+                if (Math.abs(dx) < 1.2 && Math.abs(dz) < 1.5) {
+                    score = 0;
+                    b.position.z = -120;
+                }
+
+                if (b.position.z > 10) resetBlock(b);
+            });
+
+            score++;
+            document.getElementById('score').innerText = score;
+            document.getElementById('speed').innerText = Math.floor(gameSpeed * 400);
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
